@@ -9,7 +9,8 @@ import (
 )
 
 func main() {
-	http.HandleFunc("/", api.Handler)
+	http.HandleFunc("/", api.IndexHandler)
+	http.HandleFunc("/healthz", api.HealthzHandler)
 
 	port := parsePort()
 	address := fmt.Sprintf(":%s", port)
