@@ -56,7 +56,7 @@ Then you can simply deploy it with:
 vercel
 ```
 
-Be note that you have to set the environment variables in the Vercel dashboard (`Settings` -> `Environment Variables`).
+Note that you have to set the environment variables in the Vercel dashboard (`Settings` -> `Environment Variables`).
 After that, you have to **redeploy**. Otherwise, the env. variables changes won't take effect.
 
 #### Docker
