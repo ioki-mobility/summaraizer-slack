@@ -28,7 +28,7 @@ var slackBotToken = os.Getenv("SLACK_BOT_TOKEN")
 var openAiToken = os.Getenv("OPENAI_API_TOKEN")
 var ollamUrl = os.Getenv("OLLAMA_URL")
 
-func Handler(w http.ResponseWriter, r *http.Request) {
+func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	if slackBotToken == "" {
 		http.Error(w, "SLACK_BOT_TOKEN is not set", http.StatusInternalServerError)
 		return
