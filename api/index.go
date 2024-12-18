@@ -29,6 +29,8 @@ var openAiToken = os.Getenv("OPENAI_API_TOKEN")
 var ollamUrl = os.Getenv("OLLAMA_URL")
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
+	acknowledgeSlackRequest(w, r)
+
 	if slackBotToken == "" {
 		http.Error(w, "SLACK_BOT_TOKEN is not set", http.StatusInternalServerError)
 		return
@@ -55,6 +57,12 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "Unknown event type", http.StatusBadRequest)
 	}
+}
+
+// For Slack to acknowledge the request, we need to respond with a 200 status code.
+// See https://api.slack.com/apis/events-api#responding
+func acknowledgeSlackRequest(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
 }
 
 func handleURLVerification(w http.ResponseWriter, event map[string]interface{}) {
@@ -86,8 +94,6 @@ func handleEventCallback(w http.ResponseWriter, event map[string]interface{}) {
 			sendSlackMessage(channel, summarization, threadTs)
 		}
 	}
-
-	w.WriteHeader(http.StatusOK)
 }
 
 func fetchAndSummarize(channel, threadTs string) string {
