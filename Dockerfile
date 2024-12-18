@@ -30,4 +30,4 @@ COPY --from=builder /app/summaraizer-slack-server /summaraizer-slack-server
 ENTRYPOINT ["/summaraizer-slack-server"]
 
 # Pass runtime arguments to the binary
-CMD ["/summaraizer-slack-server", "--port", "${PORT}"]
+CMD ["/summaraizer-slack-server", "-port", "${PORT}"]
