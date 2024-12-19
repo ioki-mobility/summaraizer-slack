@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -60,10 +61,12 @@ func EventHandler(w http.ResponseWriter, r *http.Request) {
 		threadTs, _ := innerEvent["thread_ts"].(string)
 		channel, _ := innerEvent["channel"].(string)
 
+		messageTs := slack.SendMessage(":brain: Thinking...", channel, threadTs, slackBotToken)
+
 		if threadTs != "" && strings.Contains(strings.ToLower(text), "summarize") {
 			log.Printf("Summarize request in channel %s, thread %s by %s", channel, threadTs, user)
 			summarization := fetchAndSummarize(channel, threadTs)
-			slack.SendMessage(channel, summarization, threadTs, slackBotToken)
+			slack.UpdateMessage(messageTemplate(summarization), channel, messageTs, slackBotToken)
 		}
 	}
 }
@@ -107,4 +110,11 @@ func fetchAndSummarize(channel, threadTs string) string {
 	}
 
 	return summarization
+}
+
+func messageTemplate(message string) string {
+	summaraizerLink := "<https://github.com/ioki-mobility/summaraizer|summaraizer>"
+	summaraizerSlackLink := "<https://github.com/ioki-mobility/summaraizer-slack|summaraizer-slack>"
+	messageTmpl := "> This is a AI generated summarization of this thread. Powered by %s via %s:\n\n%s"
+	return fmt.Sprintf(messageTmpl, summaraizerLink, summaraizerSlackLink, message)
 }
