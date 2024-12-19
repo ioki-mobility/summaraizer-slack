@@ -4,10 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 	"time"
+
+	"github.com/ioki-mobility/summaraizer-slack/slack"
 )
+
+var slackSigningSecretIndex = os.Getenv("SLACK_SIGNING_SECRET")
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
@@ -16,6 +23,11 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer r.Body.Close()
+
+	if valid := slack.VerifySignature(r.Header, body, slackSigningSecretIndex); valid != true {
+		log.Printf("Slack signature doesn't match!")
+		return
+	}
 
 	var event map[string]interface{}
 	if err := json.Unmarshal(body, &event); err != nil {
@@ -28,7 +40,7 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 		handleURLVerification(w, event)
 	case "event_callback":
 		acknowledgeSlackRequest(w)
-		handleEventCallback(w, r, body)
+		handleEventCallback(r, body)
 	default:
 		http.Error(w, "Unknown event type", http.StatusBadRequest)
 	}
@@ -50,22 +62,19 @@ func acknowledgeSlackRequest(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func handleEventCallback(w http.ResponseWriter, r *http.Request, body []byte) {
+func handleEventCallback(r *http.Request, body []byte) {
 	scheme := "http"
 	if r.TLS != nil {
 		scheme = "https"
 	}
-	url := fmt.Sprintf("%s://%s/event", scheme, r.Host)
-	req, err := http.NewRequest("POST", url, strings.NewReader(string(body)))
-	if err != nil {
-		http.Error(w, "Error creating request", http.StatusInternalServerError)
-		return
-	}
-
-	req.Header.Set("Content-Type", r.Header.Get("Content-Type"))
+	req := r.Clone(r.Context())
+	req.RequestURI = ""
+	req.URL, _ = url.Parse(fmt.Sprintf("%s://%s/event", scheme, r.Host))
+	req.Method = "POST"
+	req.Body = io.NopCloser(strings.NewReader(string(body)))
 
 	client := &http.Client{
 		Timeout: 150 * time.Millisecond,
 	}
-	_, err = client.Do(req)
+	client.Do(req)
 }
