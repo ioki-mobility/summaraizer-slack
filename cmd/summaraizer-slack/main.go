@@ -10,6 +10,7 @@ import (
 
 func main() {
 	http.HandleFunc("/", api.IndexHandler)
+	http.HandleFunc("/event", api.EventHandler)
 	http.HandleFunc("/healthz", api.HealthzHandler)
 	http.HandleFunc("/ready", api.ReadyHandler)
 
