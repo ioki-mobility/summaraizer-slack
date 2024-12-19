@@ -13,8 +13,6 @@ import (
 	"github.com/ioki-mobility/summaraizer-slack/slack"
 )
 
-const slackApiUrl = "https://slack.com/api/"
-
 const aiPrompt = `
 I give you a discussion and you give me a summary.
 Each comment of the discussion is wrapped in a <comment> tag.
@@ -65,7 +63,7 @@ func EventHandler(w http.ResponseWriter, r *http.Request) {
 		if threadTs != "" && strings.Contains(strings.ToLower(text), "summarize") {
 			log.Printf("Summarize request in channel %s, thread %s by %s", channel, threadTs, user)
 			summarization := fetchAndSummarize(channel, threadTs)
-			sendSlackMessage(channel, summarization, threadTs)
+			slack.SendMessage(channel, summarization, threadTs, slackBotToken)
 		}
 	}
 }
@@ -109,38 +107,4 @@ func fetchAndSummarize(channel, threadTs string) string {
 	}
 
 	return summarization
-}
-
-func sendSlackMessage(channel, text, threadTs string) {
-	payload := map[string]interface{}{
-		"channel":   channel,
-		"text":      text,
-		"thread_ts": threadTs,
-	}
-
-	jsonPayload, err := json.Marshal(payload)
-	if err != nil {
-		log.Printf("Error marshaling JSON: %v", err)
-		return
-	}
-
-	req, err := http.NewRequest("POST", slackApiUrl+"chat.postMessage", strings.NewReader(string(jsonPayload)))
-	if err != nil {
-		log.Printf("Error creating request: %v", err)
-		return
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+slackBotToken)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Printf("Error sending message: %v", err)
-		return
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
-	log.Printf("Slack API response: %s", string(body))
 }
