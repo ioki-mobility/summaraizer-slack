@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/ioki-mobility/summaraizer"
+	"github.com/ioki-mobility/summaraizer-slack/slack"
 )
 
 const slackApiUrl = "https://slack.com/api/"
@@ -25,6 +26,8 @@ Here is the discussion:
 `
 
 var slackBotToken = os.Getenv("SLACK_BOT_TOKEN")
+var slackSigningSecretEvent = os.Getenv("SLACK_SIGNING_SECRET")
+
 var openAiToken = os.Getenv("OPENAI_API_TOKEN")
 var ollamUrl = os.Getenv("OLLAMA_URL")
 
@@ -35,6 +38,11 @@ func EventHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer r.Body.Close()
+
+	if valid := slack.VerifySignature(r.Header, body, slackSigningSecretEvent); valid != true {
+		http.Error(w, "Slack signature doesn't match!", http.StatusBadRequest)
+		return
+	}
 
 	var event map[string]interface{}
 	if err := json.Unmarshal(body, &event); err != nil {
