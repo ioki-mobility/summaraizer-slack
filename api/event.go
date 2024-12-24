@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -12,8 +13,6 @@ import (
 	"github.com/ioki-mobility/summaraizer"
 	"github.com/ioki-mobility/summaraizer-slack/slack"
 )
-
-const slackApiUrl = "https://slack.com/api/"
 
 const aiPrompt = `
 I give you a discussion and you give me a summary.
@@ -62,10 +61,12 @@ func EventHandler(w http.ResponseWriter, r *http.Request) {
 		threadTs, _ := innerEvent["thread_ts"].(string)
 		channel, _ := innerEvent["channel"].(string)
 
+		messageTs := slack.SendMessage(":brain: Thinking...", channel, threadTs, slackBotToken)
+
 		if threadTs != "" && strings.Contains(strings.ToLower(text), "summarize") {
 			log.Printf("Summarize request in channel %s, thread %s by %s", channel, threadTs, user)
 			summarization := fetchAndSummarize(channel, threadTs)
-			sendSlackMessage(channel, summarization, threadTs)
+			slack.UpdateMessage(messageTemplate(summarization), channel, messageTs, slackBotToken)
 		}
 	}
 }
@@ -111,36 +112,9 @@ func fetchAndSummarize(channel, threadTs string) string {
 	return summarization
 }
 
-func sendSlackMessage(channel, text, threadTs string) {
-	payload := map[string]interface{}{
-		"channel":   channel,
-		"text":      text,
-		"thread_ts": threadTs,
-	}
-
-	jsonPayload, err := json.Marshal(payload)
-	if err != nil {
-		log.Printf("Error marshaling JSON: %v", err)
-		return
-	}
-
-	req, err := http.NewRequest("POST", slackApiUrl+"chat.postMessage", strings.NewReader(string(jsonPayload)))
-	if err != nil {
-		log.Printf("Error creating request: %v", err)
-		return
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+slackBotToken)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Printf("Error sending message: %v", err)
-		return
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
-	log.Printf("Slack API response: %s", string(body))
+func messageTemplate(message string) string {
+	summaraizerLink := "<https://github.com/ioki-mobility/summaraizer|summaraizer>"
+	summaraizerSlackLink := "<https://github.com/ioki-mobility/summaraizer-slack|summaraizer-slack>"
+	messageTmpl := "> This is a AI generated summarization of this thread. Powered by %s via %s:\n\n%s"
+	return fmt.Sprintf(messageTmpl, summaraizerLink, summaraizerSlackLink, message)
 }
