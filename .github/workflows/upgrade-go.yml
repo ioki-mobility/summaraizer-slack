@@ -1,0 +1,13 @@
+name: Upgrade Go
+
+on: 
+  workflow_dispatch:
+  schedule:
+    - cron: "0 8 * * MON"
+
+jobs:
+  upgrade-go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: StefMa/Upgrade-Go-Action@main
