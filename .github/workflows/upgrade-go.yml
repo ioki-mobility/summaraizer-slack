@@ -11,5 +11,3 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: StefMa/Upgrade-Go-Action@main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
