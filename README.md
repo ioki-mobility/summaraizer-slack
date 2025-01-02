@@ -41,11 +41,14 @@ After you deployed the code, you can continue with the steps 6-9 steps.
 
 The following sections shows how to deploy the code to Vercel, as a Docker Image or on a Webserver.
 
-However, all options requires the `SLACK_BOT_TOKEN` environment variable to be set.
+However, all options requires the `SLACK_BOT_TOKEN` 
+as well as the `SLACK_SIGNING_SECRET` environment variable to be set.
+
 Depending on which AI provider you want to use, 
 you have to set the `OPENAI_API_TOKEN` **or** `OLLAMA_URL` environment variable as well.
 
-The `SLACK_BOT_TOKEN` can be found in the Slack integration `OAuth & Permissions`.
+The value for the `SLACK_BOT_TOKEN` can be found in the Slack integration `OAuth & Permissions`.
+The value for the `SLACK_SIGNING_SECRET` can be found in the Slack integration `Basic Information`.
 
 #### Vercel
 
@@ -70,7 +73,7 @@ docker build -t summaraizer-slack .
 To run that Docker image, you can use the following command:
 
 ```bash
-docker run -p 8080:8080 -e SLACK_BOT_TOKEN=your-token -e OPENAI_API_TOKEN=your-token summaraizer-slack
+docker run -p 8080:8080 -e SLACK_BOT_TOKEN=your-token -e SLACK-SIGNING_SECRET=your-secret -e OPENAI_API_TOKEN=your-token summaraizer-slack
 ```
 
 
@@ -132,6 +135,10 @@ curl -X POST http://localhost:8080 -H "Content-Type: application/json" -d '{
   }
 }'
 ```
+
+> [!IMPORTANT]
+> When faking this, you might want to remove the signature verification from the code.
+> You can change this inside the [`slack/slack.go`](slack/slack.go) file.
 
 ## Release
 
