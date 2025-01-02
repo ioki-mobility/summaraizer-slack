@@ -11,7 +11,7 @@ WORKDIR /app
 COPY . .
 
 # Build the Go binary with static linking
-RUN CGO_ENABLED=0 GOOS=linux go build -a -o summaraizer-slack-server cmd/summaraizer-slack/main.go
+RUN GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux go build -a -o summaraizer-slack-server cmd/summaraizer-slack/main.go
 
 # Stage 2: Create a minimal image with the compiled binary
 FROM scratch
