@@ -132,3 +132,13 @@ curl -X POST http://localhost:8080 -H "Content-Type: application/json" -d '{
   }
 }'
 ```
+
+## Release
+
+1. Navigate to the [Actions tab](../../actions) in your repository.
+2. Select the ["Create Release" workflow](../../actions/workflows/publishing.yml).
+3. Click on "Run workflow" and enter the new version number (e.g., `1.2.3`).
+
+The new version tag will be created and pushed.
+A draft GitHub release will be generated. 
+You can view the releases on the [Releases page](../../releases/latest).
