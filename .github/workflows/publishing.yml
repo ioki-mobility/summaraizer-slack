@@ -1,9 +1,12 @@
 name: Build and Push Docker Image
 
 on:
-  push:
-    tags:
-      - "*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'The full semantic version (e.g., 1.2.3)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -15,6 +18,16 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        
+      - name: Create and push tag
+        run: |
+          git tag ${{ inputs.version }}
+          git push origin ${{ github.events.inputs.version }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -36,5 +49,12 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}:${{ inputs.version }}
             ghcr.io/${{ github.repository }}:latest
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.events.inputs.version }}
+          name: ${{ github.event.inputs.version }}
+          draft: true
