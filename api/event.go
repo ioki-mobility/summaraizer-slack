@@ -61,10 +61,9 @@ func EventHandler(w http.ResponseWriter, r *http.Request) {
 		threadTs, _ := innerEvent["thread_ts"].(string)
 		channel, _ := innerEvent["channel"].(string)
 
-		messageTs := slack.SendMessage(":brain: Thinking...", channel, threadTs, slackBotToken)
-
 		if threadTs != "" && strings.Contains(strings.ToLower(text), "summarize") {
 			log.Printf("Summarize request in channel %s, thread %s by %s", channel, threadTs, user)
+			messageTs := slack.SendMessage(":brain: Thinking...", channel, threadTs, slackBotToken)
 			summarization := fetchAndSummarize(channel, threadTs)
 			slack.UpdateMessage(messageTemplate(summarization), channel, messageTs, slackBotToken)
 		}
