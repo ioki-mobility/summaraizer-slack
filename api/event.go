@@ -14,7 +14,7 @@ import (
 	"github.com/ioki-mobility/summaraizer-slack/slack"
 )
 
-const aiPrompt = `
+const summarizeAiPrompt = `
 I give you a discussion and you give me a summary.
 Each comment of the discussion is wrapped in a <comment> tag.
 Your summary should not be longer than 1200 chars.
@@ -22,6 +22,45 @@ Here is the discussion:
 {{ range $comment := . }}
 <comment>{{ $comment.Body }}</comment>
 {{end}}
+`
+
+const chatbotAiPrompt = `
+You are an advanced chatbot tasked with responding to a user message. Your responses should be informed, contextually aware, and relevant. Below are your instructions:
+
+1. If a history of previous discussions is provided, use it to understand the context of the current message and craft your response accordingly.
+2. If no history is provided, focus solely on the current message and generate a standalone response.
+3. Use the previous discussion solely as background knowledge to inform your reply. Do not refer to it explicitly.
+
+Example (What NOT to do):
+- "Considering the previous discussion, I believe..."
+- "Given the context, my response is..."
+- "It looks like you're still curious about our conversation..."
+
+Example (What to do):
+- Respond directly: "Here is the information you need..." or "Yes, we can proceed with..."
+
+The input will have the following structure:
+
+- Previous Discussion (if available):
+<comment>First comment in the history</comment>
+<comment>Second comment in the history</comment>
+...
+
+- Current Message (to respond to):
+<message>
+This is the new user message you should respond to.
+</message>
+
+**Your task**: Respond to the message thoughtfully and contextually, considering any relevant details in the previous discussion (if present).
+
+Below is the input:
+
+Previous Discussion:
+{{ range $comment := . }}
+<comment>{{ $comment.Body }}</comment>
+{{end}}
+
+Message to Respond To:
 `
 
 var slackBotToken = os.Getenv("SLACK_BOT_TOKEN")
@@ -58,27 +97,52 @@ func EventHandler(w http.ResponseWriter, r *http.Request) {
 	if innerEvent["type"] == "app_mention" {
 		user, _ := innerEvent["user"].(string)
 		text, _ := innerEvent["text"].(string)
+		text = strings.Join(strings.Fields(text)[1:], " ") // Remove the bot name from the text
 		threadTs, _ := innerEvent["thread_ts"].(string)
+		ts, _ := innerEvent["ts"].(string)
 		channel, _ := innerEvent["channel"].(string)
 
-		if threadTs != "" && strings.Contains(strings.ToLower(text), "summarize") {
+		if threadTs != "" && strings.HasPrefix(strings.ToLower(text), "summarize please") {
 			log.Printf("Summarize request in channel %s, thread %s by %s", channel, threadTs, user)
-			messageTs := slack.SendMessage(":brain: Thinking...", channel, threadTs, slackBotToken)
+			messageTs := slack.SendMessage(":brain: Summarizing...", channel, threadTs, slackBotToken)
 			summarization := fetchAndSummarize(channel, threadTs)
-			slack.UpdateMessage(messageTemplate(summarization), channel, messageTs, slackBotToken)
+			slack.UpdateMessage(summarizeResponseMessageTemplate(summarization), channel, messageTs, slackBotToken)
+			return
 		}
+
+		log.Printf("Chat request in channel %s, ts %s by %s", channel, threadTs, user)
+		messageTs := slack.SendMessage(":brain: Responding...", channel, ts, slackBotToken)
+		chatbotResponse := fetchAndResponse(channel, threadTs, text)
+		slack.UpdateMessage(chatbotResponse, channel, messageTs, slackBotToken)
 	}
 }
 
 func fetchAndSummarize(channel, threadTs string) string {
+	threadDiscussion := fetchSlackThread(channel, threadTs)
+	return summarize(summarizeAiPrompt, threadDiscussion)
+}
+
+func fetchAndResponse(channel, threadTs, message string) string {
+	var threadDiscussion = `[{ "author": "", "body": "" }]`
+	if threadTs != "" {
+		threadDiscussion = fetchSlackThread(channel, threadTs)
+	}
+	prompt := fmt.Sprintf("%s <message>%s</message>", chatbotAiPrompt, message)
+	return summarize(prompt, threadDiscussion)
+}
+
+func fetchSlackThread(channel, threadTs string) string {
 	buffer := bytes.Buffer{}
-	slack := summaraizer.Slack{
+	source := summaraizer.Slack{
 		Token:   slackBotToken,
 		Channel: channel,
 		TS:      threadTs,
 	}
-	slack.Fetch(&buffer)
+	source.Fetch(&buffer)
+	return buffer.String()
+}
 
+func summarize(prompt, threadDiscussion string) string {
 	var summarization string
 	var err error
 	var summarizer summaraizer.Summarizer
@@ -86,14 +150,14 @@ func fetchAndSummarize(channel, threadTs string) string {
 	case openAiToken != "":
 		summarizer = &summaraizer.OpenAi{
 			Model:    "gpt-4o-mini",
-			Prompt:   aiPrompt,
+			Prompt:   prompt,
 			ApiToken: openAiToken,
 		}
 		break
 	case ollamUrl != "":
 		summarizer = &summaraizer.Ollama{
 			Model:  "llama3.1:latest",
-			Prompt: aiPrompt,
+			Prompt: prompt,
 			Url:    ollamUrl,
 		}
 		break
@@ -102,7 +166,7 @@ func fetchAndSummarize(channel, threadTs string) string {
 		log.Fatal("OpenAiToken AND OllamaUrl are nil. Please set one of them.")
 	}
 
-	summarization, err = summarizer.Summarize(&buffer)
+	summarization, err = summarizer.Summarize(strings.NewReader(threadDiscussion))
 
 	if err != nil {
 		log.Fatal(err)
@@ -111,7 +175,7 @@ func fetchAndSummarize(channel, threadTs string) string {
 	return summarization
 }
 
-func messageTemplate(message string) string {
+func summarizeResponseMessageTemplate(message string) string {
 	summaraizerLink := "<https://github.com/ioki-mobility/summaraizer|summaraizer>"
 	summaraizerSlackLink := "<https://github.com/ioki-mobility/summaraizer-slack|summaraizer-slack>"
 	messageTmpl := "> This is a AI generated summarization of this thread. Powered by %s via %s:\n\n%s"
